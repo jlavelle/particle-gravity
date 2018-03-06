@@ -3,7 +3,7 @@ let paused = false
 let sim
 
 const angle = (p1, p2) => Math.atan2(p2.y - p1.y, p2.x - p1.x)
-const momentum = ({ velocity, mass }) => velocity.copy().mult(mass).mag()
+const momentum = ({ velocity, mass }) => velocity.copy().mult(mass)
 const kineticEnergy = ({ velocity, mass }) => 0.5 * mass * (velocity.copy().mag() ^ 2)
 
 const forceVec = (f, p1, p2) => {
@@ -63,9 +63,9 @@ const render = ({ particles }) => {
 const updateStats = (simulation) => {
   const e = document.getElementById('energy')
   const m = document.getElementById('momentum')
-  const totalMomentum = simulation.particles.reduce((acc, p) => acc + momentum(p), 0)
+  const totalMomentum = simulation.particles.reduce((acc, p) => acc.add(momentum(p)), createVector(0, 0))
   const totalEnergy = simulation.particles.reduce((acc, p) => acc + kineticEnergy(p), 0)
-  m.textContent = `Total Momentum: ${totalMomentum}`
+  m.textContent = `Total Momentum: ${totalMomentum.mag()}`
   e.textContent = `Total Energy: ${totalEnergy}`
 }
 
