@@ -1,6 +1,8 @@
 const G = 0.1
 let paused = false
-let showMomentum = true
+let showMomentum = false
+let showVelocity = true
+let showForce = true
 let sim
 
 const last = (n, as) => as.slice(as.length - n)
@@ -22,7 +24,7 @@ const gravity = (p1, p2) => {
   return fV
 }
 
-const Particle = (position, velocity, mass, color, history=[]) => {
+const Particle = (position, velocity, mass, color, history=[], lastForce=null) => {
   return {
     get x() {
       return position.x
@@ -35,12 +37,13 @@ const Particle = (position, velocity, mass, color, history=[]) => {
     color,
     velocity,
     history,
+    lastForce,
     update(force) {
       const a = p5.Vector.div(force, mass)
       const v = velocity.add(a)
       const oldP = position.copy()
       const p = position.add(v)
-      return Particle(p, v, mass, color, [...last(500, history), oldP])
+      return Particle(p, v, mass, color, [...last(500, history), oldP], force)
     }
   }
 }
@@ -70,6 +73,16 @@ const render = ({ particles }) => {
       line(p.x, p.y, p.x + m.x * 2, p.y + m.y * 2)
       noStroke()
     }
+    if (showVelocity) {
+      stroke(100)
+      line(p.x, p.y, p.x + p.velocity.x * 2, p.y + p.velocity.y * 2)
+    }
+    if (showForce && p.lastForce) {
+      stroke(0)
+      line(p.x, p.y, p.x + p.lastForce.x * 10, p.y + p.lastForce.y * 10)
+      
+    }
+    noStroke()
     p.history.forEach((pos, i) => {
       const tp = p.color.slice()
       tp[3] = (i / p.history.length) * 255
