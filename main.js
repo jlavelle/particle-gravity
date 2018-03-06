@@ -1,5 +1,6 @@
 const G = 0.1
 let paused = false
+let showMomentum = true
 let sim
 
 const last = (n, as) => as.slice(as.length - n)
@@ -61,6 +62,10 @@ const render = ({ particles }) => {
     fill(...p.color)
     const r = 10 + (p.mass / 50)
     ellipse(p.x, p.y, r, r)
+    if (showMomentum) {
+      fill(0)
+      text(`${momentum(p).mag().toFixed(3)}`, p.x + 10, p.y + 10)
+    }
     p.history.forEach(pos => {
       const tp = p.color.slice()
       tp[3] = 100
