@@ -63,12 +63,16 @@ const render = ({ particles }) => {
     const r = 10 + (p.mass / 50)
     ellipse(p.x, p.y, r, r)
     if (showMomentum) {
+      const m = momentum(p)
       fill(0)
-      text(`${momentum(p).mag().toFixed(3)}`, p.x + 10, p.y + 10)
+      text(`${m.mag().toFixed(3)}`, p.x + 10, p.y + 10)
+      stroke(100)
+      line(p.x, p.y, p.x + m.x * 2, p.y + m.y * 2)
+      noStroke()
     }
-    p.history.forEach(pos => {
+    p.history.forEach((pos, i) => {
       const tp = p.color.slice()
-      tp[3] = 100
+      tp[3] = (i / p.history.length) * 255
       fill(...tp)
       ellipse(pos.x, pos.y, r / 3, r / 3)
     })
@@ -89,11 +93,11 @@ function setup() {
   createCanvas(1000, 1000)
   noStroke()
   sim = Simulation([
-    Particle(createVector(500, 300), createVector(14, 0), 1, [0, 0, 255]),
+    Particle(createVector(500, 300), createVector(13, 0), 1, [0, 0, 255]),
     Particle(createVector(500, 350), createVector(13, 0), 1, [255, 0, 0]),
     Particle(createVector(500, 400), createVector(12, 0), 1, [0, 255, 0]),
     Particle(createVector(500, 450), createVector(12, 0), 1, [100, 100, 100]),
-    Particle(createVector(500, 500), createVector(-0.03, -0.001), 1500, [255, 255, 0])
+    Particle(createVector(500, 500), createVector(0, 0), 1500, [255, 255, 0])
   ])
 }
 
