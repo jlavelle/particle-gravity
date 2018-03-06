@@ -2,6 +2,8 @@ const G = 0.1
 let paused = false
 let sim
 
+const last = (n, as) => as.slice(as.length - n)
+
 const angle = (p1, p2) => Math.atan2(p2.y - p1.y, p2.x - p1.x)
 const momentum = ({ velocity, mass }) => velocity.copy().mult(mass)
 const kineticEnergy = ({ velocity, mass }) => 0.5 * mass * (velocity.copy().mag() ^ 2)
@@ -19,7 +21,7 @@ const gravity = (p1, p2) => {
   return fV
 }
 
-const Particle = (position, velocity, mass, color) => {
+const Particle = (position, velocity, mass, color, history=[]) => {
   return {
     get x() {
       return position.x
@@ -31,11 +33,13 @@ const Particle = (position, velocity, mass, color) => {
     mass,
     color,
     velocity,
+    history,
     update(force) {
       const a = p5.Vector.div(force, mass)
       const v = velocity.add(a)
+      const oldP = position.copy()
       const p = position.add(v)
-      return Particle(p, v, mass, color)
+      return Particle(p, v, mass, color, [...last(500, history), oldP])
     }
   }
 }
@@ -57,6 +61,12 @@ const render = ({ particles }) => {
     fill(...p.color)
     const r = 10 + (p.mass / 50)
     ellipse(p.x, p.y, r, r)
+    p.history.forEach(pos => {
+      const tp = p.color.slice()
+      tp[3] = 100
+      fill(...tp)
+      ellipse(pos.x, pos.y, r / 3, r / 3)
+    })
   })
 }
 
@@ -71,13 +81,14 @@ const updateStats = (simulation) => {
 
 function setup() {
   frameRate(30)
-  createCanvas(500, 500)
+  createCanvas(1000, 1000)
+  noStroke()
   sim = Simulation([
-    Particle(createVector(250, 300), createVector(14, 0), 1, [0, 0, 0]),
-    Particle(createVector(250, 350), createVector(13, 0), 1, [0, 0, 0]),
-    Particle(createVector(250, 400), createVector(12, 0), 1, [0, 0, 0]),
-    Particle(createVector(250, 450), createVector(12, 0), 1, [0, 0, 0]),
-    Particle(createVector(250, 250), createVector(-0.03, -0.001), 1500, [255, 255, 0])
+    Particle(createVector(500, 300), createVector(14, 0), 1, [0, 0, 255]),
+    Particle(createVector(500, 350), createVector(13, 0), 1, [255, 0, 0]),
+    Particle(createVector(500, 400), createVector(12, 0), 1, [0, 255, 0]),
+    Particle(createVector(500, 450), createVector(12, 0), 1, [100, 100, 100]),
+    Particle(createVector(500, 500), createVector(-0.03, -0.001), 1500, [255, 255, 0])
   ])
 }
 
