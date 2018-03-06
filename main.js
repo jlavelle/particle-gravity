@@ -3,7 +3,7 @@ let paused = false
 let showMomentum = false
 let showVelocity = true
 let showForce = true
-let sim
+let particles = []
 
 const last = (n, as) => as.slice(as.length - n)
 
@@ -23,9 +23,8 @@ const gravity = (p1, p2) => {
   return forceVec(f, p1, p2)
 }
 
-const mkParticle = (pos, vel, mass, color, hist = [], lastf = null) => ({ pos, vel, mass, color, hist, lastf })
-
 const Particle = {
+  make: (pos, vel, mass, color, hist = [], lastf = null) => ({ pos, vel, mass, color, hist, lastf }),
   update: p => force => {
     const { mass, vel, pos, hist } = p
     const a = p5.Vector.div(force, mass)
@@ -35,16 +34,11 @@ const Particle = {
   }
 }
 
-const Simulation = (particles) => {
-  return {
-    particles,
-    step() {
-      return Simulation(particles.map(p => {
-        const force = particles.reduce((acc, other) => acc.add(gravity(p, other)), createVector(0, 0))
-        return Particle.update(p)(force)
-      }))
-    }
-  }
+const Simulation = {
+  step: ps => ps.map(p => {
+    const f = ps.reduce((a, o) => a.add(gravity(p, o)), createVector(0, 0))
+    return Particle.update(p)(f)
+  })
 }
 
 const showVec = (p, v, scale, color) => {
@@ -55,7 +49,7 @@ const showVec = (p, v, scale, color) => {
   noStroke()
 }
 
-const render = ({ particles }) => {
+const render = (particles) => {
   particles.forEach(p => {
     const { color, mass, pos, vel, lastf, hist } = p
     const { x, y } = pos
@@ -81,35 +75,36 @@ const render = ({ particles }) => {
   })
 }
 
-const updateStats = (simulation) => {
+const updateStats = (particles) => {
   const e = document.getElementById('energy')
   const m = document.getElementById('momentum')
-  const totalMomentum = simulation.particles.reduce((acc, p) => acc.add(momentum(p)), createVector(0, 0))
-  const totalEnergy = simulation.particles.reduce((acc, p) => acc + kineticEnergy(p), 0)
+  const totalMomentum = particles.reduce((acc, p) => acc.add(momentum(p)), createVector(0, 0))
+  const totalEnergy = particles.reduce((acc, p) => acc + kineticEnergy(p), 0)
   m.textContent = `Total Momentum: ${totalMomentum.mag()}`
   e.textContent = `Total Energy: ${totalEnergy}`
 }
 
 function setup() {
+  const { make } = Particle
   frameRate(30)
   createCanvas(1000, 1000)
   noStroke()
-  sim = Simulation([
-    mkParticle(createVector(500, 300), createVector(13, 0), 5, [0, 0, 255]),
-    mkParticle(createVector(500, 350), createVector(13, 0), 5, [255, 0, 0]),
-    mkParticle(createVector(500, 400), createVector(4, 0), 2, [0, 255, 0]),
-    mkParticle(createVector(500, 450), createVector(12, 0), 1, [100, 100, 100]),
-    mkParticle(createVector(500, 500), createVector(0, 0), 1500, [255, 255, 0])
-  ])
+  particles = [
+    make(createVector(500, 300), createVector(13, 0), 5, [0, 0, 255]),
+    make(createVector(500, 350), createVector(13, 0), 5, [255, 0, 0]),
+    make(createVector(500, 400), createVector(4, 0), 2, [0, 255, 0]),
+    make(createVector(500, 450), createVector(12, 0), 1, [100, 100, 100]),
+    make(createVector(500, 500), createVector(0, 0), 1500, [255, 255, 0])
+  ]
 }
 
 function draw() {
   clear()
   if (!paused) {
-    sim = sim.step()
+    particles = Simulation.step(particles)
   }
-  render(sim)
-  updateStats(sim)
+  render(particles)
+  updateStats(particles)
 }
 
 function mousePressed() {
@@ -118,6 +113,6 @@ function mousePressed() {
 
 function keyPressed() {
   if (key === ' ') {
-    sim = sim.step()
+    particles = Simulation.step(particles)
   }
 }
