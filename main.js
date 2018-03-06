@@ -77,7 +77,7 @@ function setup() {
     Particle(createVector(250, 350), createVector(13, 0), 1, [0, 0, 0]),
     Particle(createVector(250, 400), createVector(12, 0), 1, [0, 0, 0]),
     Particle(createVector(250, 450), createVector(12, 0), 1, [0, 0, 0]),
-    Particle(createVector(250, 250), createVector(-0.02, -0.02), 1500, [255, 255, 0])
+    Particle(createVector(250, 250), createVector(-0.03, -0.001), 1500, [255, 255, 0])
   ])
 }
 
