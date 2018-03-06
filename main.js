@@ -1,4 +1,4 @@
-const G = 0.1
+const G = 1
 let paused = false
 let showMomentum = false
 let showVelocity = true
@@ -18,7 +18,7 @@ const forceVec = (f, p1, p2) => {
 
 const gravity = (p1, p2) => {
   const distance = dist(p1.pos.x, p1.pos.y, p2.pos.x, p2.pos.y)
-  const f = (G * p1.mass * p2.mass) / (distance ^ 2)
+  const f = (G * p1.mass * p2.mass) / Math.pow(distance, 2)
   if (f === Infinity || distance === 0) return createVector(0, 0)
   return forceVec(f, p1, p2)
 }
@@ -90,10 +90,10 @@ function setup() {
   createCanvas(1000, 1000)
   noStroke()
   particles = [
-    make(createVector(500, 300), createVector(13, 0), 5, [0, 0, 255]),
-    make(createVector(500, 350), createVector(13, 0), 5, [255, 0, 0]),
+    make(createVector(500, 300), createVector(2, 0), 5, [0, 0, 255]),
+    make(createVector(500, 350), createVector(3, 0), 5, [255, 0, 0]),
     make(createVector(500, 400), createVector(4, 0), 2, [0, 255, 0]),
-    make(createVector(500, 450), createVector(12, 0), 1, [100, 100, 100]),
+    make(createVector(500, 450), createVector(6, 0), 1, [100, 100, 100]),
     make(createVector(500, 500), createVector(0, 0), 1500, [255, 255, 0])
   ]
 }
