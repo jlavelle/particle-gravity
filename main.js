@@ -151,12 +151,12 @@ const Display = (() => {
   const renderTrail = p => {
     const r = particleRadius(p) / 3
 
-    p.h.forEach(({ s: pos }, i) => {
+    p.h.forEach(({ s }, i) => {
       const ratio = i / p.h.length
       const tp = p.color.slice()
       tp[3] = 255 * ratio
       fill(...tp)
-      ellipse(Vec.x(pos), Vec.y(pos), r * ratio, r * ratio)
+      ellipse(Vec.x(s), Vec.y(s), r * ratio, r * ratio)
     })
   }
 
