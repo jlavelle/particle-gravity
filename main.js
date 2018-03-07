@@ -1,134 +1,161 @@
-const G = 0.1
-let paused = false
-let showMomentum = false
-let showVelocity = true
-let showForce = true
-let sim
+const G = 1;
+let paused = false;
+let showMomentum = false;
+let showVelocity = true;
+let showForce = true;
+let sim;
 
-const last = (n, as) => as.slice(as.length - n)
+const last = (n, as) => as.slice(as.length - n);
 
-const angle = (p1, p2) => Math.atan2(p2.y - p1.y, p2.x - p1.x)
-const momentum = ({ velocity, mass }) => velocity.copy().mult(mass)
-const kineticEnergy = ({ velocity, mass }) => 0.5 * mass * (velocity.copy().mag() ^ 2)
+const Vector = (() => {
+  const scale = (k, [x, y]) => [k * x, k * y];
+  const dot = ([x1, y1], [x2, y2]) => x1 * x2 + y1 * y2;
+  const sum = ([x1, y1], [x2, y2]) => [x1 + x2, y1 + y2];
+  const diff = (v1, v2) => sum(v1, scale(-1, v2));
+  const norm = ([x1, y1], [x2, y2]) => {
+    const dx = x2 - x1;
+    const dy = y2 - y1;
 
-const forceVec = (f, p1, p2) => {
-  const a = angle(p1, p2)
-  return createVector(f * Math.cos(a), f * Math.sin(a))
-}
+    return dx === 0 ? [-dy, 0] : [-dy / dx, 1];
+  };
+  const mag = ([x, y]) => Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
+  const unit = v => scale(1 / Math.abs(mag(v)), v);
+  const eq = ([x1, y1], [x2, y2]) => x1 === x2 && y1 === y2;
+  const x = ([x, _]) => x;
+  const y = ([_, y]) => y;
 
-const gravity = (p1, p2) => {
-  const distance = dist(p1.x, p1.y, p2.x, p2.y)
-  const f = (G * p1.mass * p2.mass) / (distance ^ 2)
-  if (f === Infinity || distance === 0) return createVector(0, 0)
-  const fV = forceVec(f, p1, p2)
-  return fV
-}
+  return { scale, dot, sum, diff, norm, mag, unit, eq, x, y };
+})();
 
-const Particle = (position, velocity, mass, color, history=[], lastForce=null) => {
-  return {
-    get x() {
-      return position.x
-    },
-    get y() {
-      return position.y
-    },
-    position,
-    mass,
-    color,
-    velocity,
-    history,
-    lastForce,
-    update(force) {
-      const a = p5.Vector.div(force, mass)
-      const v = velocity.add(a)
-      const oldP = position.copy()
-      const p = position.add(v)
-      return Particle(p, v, mass, color, [...last(500, history), oldP], force)
-    }
-  }
-}
+const Physics = {
+  gravity: (p1, p2) => {
+    const { diff, mag, unit, scale } = Vector;
 
-const Simulation = (particles) => {
-  return {
-    particles,
-    step() {
-      return Simulation(particles.map(p => {
-        const force = particles.reduce((acc, other) => acc.add(gravity(p, other)), createVector(0, 0))
-        return p.update(force)
-      }))
-    }
-  }
-}
+    const offset = diff(p2.s, p1.s);
+    const distance = mag(offset);
+    const f = G * p1.m * p2.m / Math.pow(distance, 2);
 
-const render = ({ particles }) => {
-  particles.forEach(p => {
-    fill(...p.color)
-    const r = 10 + (p.mass / 50)
-    ellipse(p.x, p.y, r, r)
-    if (showMomentum) {
-      const m = momentum(p)
-      fill(0)
-      text(`${m.mag().toFixed(3)}`, p.x + 10, p.y + 10)
-      stroke(100)
-      line(p.x, p.y, p.x + m.x * 2, p.y + m.y * 2)
-      noStroke()
-    }
-    if (showVelocity) {
-      stroke(100)
-      line(p.x, p.y, p.x + p.velocity.x * 2, p.y + p.velocity.y * 2)
-    }
-    if (showForce && p.lastForce) {
-      stroke(0)
-      line(p.x, p.y, p.x + p.lastForce.x * 10, p.y + p.lastForce.y * 10)
-      
-    }
-    noStroke()
-    p.history.forEach((pos, i) => {
-      const tp = p.color.slice()
-      tp[3] = (i / p.history.length) * 255
-      fill(...tp)
-      ellipse(pos.x, pos.y, r / 3, r / 3)
-    })
+    const degen = f === Infinity || distance === 0;
+    return degen ? [0, 0] : scale(f, unit(offset));
+  },
+  momentum: ({ v, m }) => Vector.scale(m, v),
+  kinetic: ({ v, m }) => 0.5 * m * Math.pow(Vector.mag(v), 2)
+};
+
+const Particle = {
+  update: force => p => {
+    const { sum, scale } = Vector;
+
+    const { s, v, m, h } = p;
+
+    const a = scale(1 / m, force);
+    const v_ = sum(v, a);
+    const s_ = sum(s, v_);
+
+    return { ...p, s: s_, v: v_, h: [...last(50, h), p] };
+  },
+  create: (s, v, m, color, h = []) => ({ s, v, m, color, h })
+};
+
+const Simulation = {
+  evolve: particles =>
+    particles.map(p => {
+      const force = particles.reduce(
+        (g, p2) => Vector.sum(g, Physics.gravity(p, p2)),
+        [0, 0]
+      );
+      return Particle.update(force)(p);
+    }),
+
+  stats: particles => ({
+    momentum: particles.map(Physics.momentum).reduce(Vector.sum),
+    energy: particles.map(Physics.kinetic).reduce((a, b) => a + b)
   })
-}
+};
 
-const updateStats = (simulation) => {
-  const e = document.getElementById('energy')
-  const m = document.getElementById('momentum')
-  const totalMomentum = simulation.particles.reduce((acc, p) => acc.add(momentum(p)), createVector(0, 0))
-  const totalEnergy = simulation.particles.reduce((acc, p) => acc + kineticEnergy(p), 0)
-  m.textContent = `Total Momentum: ${totalMomentum.mag()}`
-  e.textContent = `Total Energy: ${totalEnergy}`
-}
+const Display = (() => {
+  const renderVector = (p, v, scale, color) => {
+    const [x, y] = p;
+    const [vx, vy] = v;
+
+    stroke(...color);
+    line(x, y, x + vx * scale, y + vy * scale);
+    noStroke();
+  };
+
+  const renderParticle = p => {
+    const { x, y } = Vector;
+
+    fill(...p.color);
+    const r = 10 + p.m / 50;
+    ellipse(x(p.s), y(p.s), r, r);
+
+    noStroke();
+    p.h.forEach(({ s: pos }, i) => {
+      const tp = p.color.slice();
+      tp[3] = 255 * (i / p.h.length);
+      fill(...tp);
+      ellipse(x(pos), y(pos), r / 3, r / 3);
+    });
+  };
+
+  const renderParticleMetadata = p => {
+    if (showVelocity) {
+      renderVector(p.s, p.v, 5, [100]);
+    }
+    if (showForce && p.h.length) {
+      renderVector(p.s, Vector.diff(p.v, p.h[p.h.length - 1].v), 50, [100]);
+    }
+  };
+
+  const render = particles => {
+    particles.forEach(p => {
+      renderParticle(p);
+      renderParticleMetadata(p);
+    });
+    updateStats(particles);
+  };
+
+  const updateStats = particles => {
+    const { momentum, energy } = Simulation.stats(particles);
+
+    const [e, m] = ["energy", "momentum"].map(id =>
+      document.getElementById(id)
+    );
+    m.textContent = `Total Momentum: ${momentum}`;
+    e.textContent = `Total Energy: ${energy}`;
+  };
+
+  return { render };
+})();
 
 function setup() {
-  frameRate(30)
-  createCanvas(1000, 1000)
-  noStroke()
-  sim = Simulation([
-    Particle(createVector(500, 300), createVector(13, 0), 1, [0, 0, 255]),
-    Particle(createVector(500, 350), createVector(13, 0), 1, [255, 0, 0]),
-    Particle(createVector(500, 400), createVector(12, 0), 1, [0, 255, 0]),
-    Particle(createVector(500, 450), createVector(12, 0), 1, [100, 100, 100]),
-    Particle(createVector(500, 500), createVector(0, 0), 1500, [255, 255, 0])
-  ])
+  frameRate(30);
+  createCanvas(1000, 1000);
+  noStroke();
+  sim = [
+    Particle.create([500, 300], [3, 0], 5, [0, 0, 255]),
+    Particle.create([500, 350], [3, 0], 5, [255, 0, 0]),
+    Particle.create([500, 400], [4, 0], 2, [0, 255, 0]),
+    Particle.create([500, 450], [6, 0], 1, [100, 100, 100]),
+    Particle.create([500, 500], [0, 0], 1500, [255, 255, 0])
+  ];
 }
 
 function draw() {
-  clear()
+  clear();
   if (!paused) {
-    sim = sim.step()
+    sim = Simulation.evolve(sim);
   }
-  render(sim)
-  updateStats(sim)
+  Display.render(sim);
 }
 
 function mousePressed() {
-  paused = !paused
+  paused = !paused;
 }
 
 function keyPressed() {
-  if (key === ' ') {
-    sim = sim.step()
+  if (key === " ") {
+    sim = sim.step();
   }
 }
