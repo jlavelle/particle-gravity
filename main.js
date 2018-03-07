@@ -13,19 +13,17 @@ const Vec = (() => {
   const dot = ([x1, y1], [x2, y2]) => x1 * x2 + y1 * y2;
   const sum = ([x1, y1], [x2, y2]) => [x1 + x2, y1 + y2];
   const diff = (v1, v2) => sum(v1, scale(-1, v2));
-  const norm = ([x1, y1], [x2, y2]) => {
-    const dx = x2 - x1;
-    const dy = y2 - y1;
-
-    return dx === 0 ? [-dy, 0] : [-dy / dx, 1];
+  const norm = ([x, y]) => {
+    return x === 0 ? [-y, 0] : [-y / x, 1];
   };
   const mag = ([x, y]) => Math.sqrt(Math.pow(x, 2) + Math.pow(y, 2));
   const unit = v => scale(1 / Math.abs(mag(v)), v);
+  const fromRadial = (theta, r) => [Math.cos(theta) * r, Math.sin(theta) * r];
   const eq = ([x1, y1], [x2, y2]) => x1 === x2 && y1 === y2;
   const x = ([x, _]) => x;
   const y = ([_, y]) => y;
 
-  return { scale, dot, sum, diff, norm, mag, unit, eq, x, y };
+  return { scale, dot, sum, diff, norm, mag, unit, fromRadial, eq, x, y };
 })();
 
 const Physics = {
@@ -80,22 +78,43 @@ const Dataset = (() => {
   const randomColor = () =>
     [0, 0, 0].map(_ => Math.floor(Math.random() * 255) % 255);
 
-  const solar = () => {
-    const planets = [1, 2, 3, 4, 5].map(n => {
-      const x = 500;
-      const height = n * 50 + Math.random() * 25;
-      const y = height + 500;
-      const s = Physics.orbitalV(sun, height);
-      return create([x, y], [s, 0], 1 + Math.random() * 5, randomColor());
-    });
+  const orbital = p => r => {
+    // mass ratio
+    const mr = 0.1;
 
-    return [sun, ...planets];
+    const offset = Vec.fromRadial(Math.random() * Math.PI, r);
+
+    const s = Vec.sum(p.s, offset);
+    const v = Vec.sum(
+      p.v,
+      Vec.scale(orbitalV(p, r), Vec.unit(Vec.norm(offset)))
+    );
+    const m = p.m * mr * Math.random();
+
+    return Particle.create(s, v, m, randomColor());
+  };
+
+  const range = n => [...Array(n).keys()];
+  const flatMap = f => as => as.reduce((p, c) => [...p, ...f(c)], []);
+
+  const solar = () => {
+    const planets = range(5)
+      .map(x => (1 + x) * 200)
+      .map(orbital(sun));
+
+    const moons = flatMap(p =>
+      range(2)
+        .map(x => (1 + x) * 30)
+        .map(orbital(p))
+    )(planets);
+
+    return [sun, ...planets, ...moons];
   };
 
   const threebody = () => {
     const planet = create(
-      [500, 900],
-      [orbitalV(sun, 400), 0],
+      [500, 600],
+      [orbitalV(sun, 100), 0],
       200,
       randomColor()
     );
@@ -172,7 +191,7 @@ function setup() {
   createCanvas(1000, 1000);
   noStroke();
 
-  sim = Dataset.threebody();
+  sim = Dataset.solar();
 }
 
 function draw() {
