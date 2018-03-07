@@ -1,4 +1,4 @@
-const G = 1
+const G = 0.1
 let paused = false
 let showMomentum = false
 let showVelocity = true
@@ -13,7 +13,7 @@ const angle = (p1, p2) => Math.atan2(p2.pos.y - p1.pos.y, p2.pos.x - p1.pos.x)
 const distance = (p1, p2) => dist(p1.pos.x, p1.pos.y, p2.pos.x, p2.pos.y)
 
 const momentum = ({ vel, mass }) => vel.copy().mult(mass)
-const kineticEnergy = ({ vel, mass }) => 0.5 * mass * (vel.copy().mag() ^ 2)
+const kineticEnergy = ({ vel, mass }) => 0.5 * mass * Math.pow(vel.copy().mag(), 2)
 const orbitalSpeed = ({ mass }, r) => Math.sqrt(G * mass / r)
 
 const forceVec = (f, p1, p2) => {
@@ -97,7 +97,7 @@ function setup() {
   const sun = make(createVector(500, 500), createVector(0, 0), 1500, [255, 255, 0])
   const planets = [1, 2, 3, 4, 5].map(n => {
     const x = 500
-    const height = n * 50
+    const height = n * 50 + (Math.random() * 25)
     const y = height + 500
     const s = orbitalSpeed(sun, height)
     return make(createVector(x, y), createVector(s, 0), 1 + Math.random() * 5, randomColor())
