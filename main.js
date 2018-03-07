@@ -60,28 +60,41 @@ const Physics = {
   orbitalV: ({ m }, r) => Math.sqrt(G * m / r)
 }
 
-const Particle = {
-  update: force => p => {
-    const { s, v, m, h } = p
+const Particle = (() => {
+  const create = (s, v, m, color, h = []) => ({ s, v, m, color, h, tick: true })
 
-    const a = Vec.scale(1 / m, force)
-    const v_ = Vec.sum(v, a)
-    const s_ = Vec.sum(s, v_)
+  const force = system => p =>
+    system.reduce((g, p2) => Vec.sum(g, Physics.gravity(p, p2)), Vec.zero)
 
-    return { ...p, s: s_, v: v_, h: [...Arr.lastN(100, h), p] }
-  },
-  create: (s, v, m, color, h = []) => ({ s, v, m, color, h })
-}
+  const accel = system => p => Vec.scale(1 / p.m, force(system)(p))
+
+  const update = system => {
+    const accels = s => Arr.map(accel(s))(s)
+
+    const s0 = system
+    // Step 1: update positions
+    const a1 = accels(s0)
+    const s1 = s0.map((p, i) => ({
+      ...p,
+      s: [p.s, p.v, Vec.scale(1 / 2, a1[i])].reduce(Vec.sum)
+    }))
+
+    // Step 2: update velocities with recomputed accelerations
+    const a2 = accels(s1)
+    const s2 = s1.map((p, i) => ({
+      ...p,
+      v: Vec.sum(p.v, Vec.scale(1 / 2, Vec.sum(a1[i], a2[i]))),
+      h: [...Arr.lastN(100, p.h), p]
+    }))
+
+    return s2
+  }
+
+  return { update, create }
+})()
 
 const Simulation = {
-  evolve: particles =>
-    particles.map(p => {
-      const force = particles.reduce(
-        (g, p2) => Vec.sum(g, Physics.gravity(p, p2)),
-        Vec.zero
-      )
-      return Particle.update(force)(p)
-    }),
+  evolve: Particle.update,
 
   stats: particles => ({
     momentum: particles.map(Physics.momentum).reduce(Vec.sum),
