@@ -65,7 +65,11 @@ const Simulation = {
 
   stats: particles => ({
     momentum: particles.map(Physics.momentum).reduce(Vec.sum),
-    energy: particles.map(Physics.kinetic).reduce((a, b) => a + b)
+    energy: particles.map(Physics.kinetic).reduce((a, b) => a + b),
+    com: Vec.scale(
+      1 / particles.map(p => p.m).reduce((a, b) => a + b),
+      particles.map(p => Vec.scale(p.m, p.s)).reduce(Vec.sum)
+    )
   })
 }
 
@@ -73,7 +77,7 @@ const Dataset = (() => {
   const { create } = Particle
   const { orbitalV } = Physics
 
-  const sun = create([500, 500], [0, 0], 3000, [0, 0, 255])
+  const sun = create([0, 0], [0, 0], 30000, [0, 0, 255])
 
   const randomColor = () =>
     [0, 0, 0].map(_ => Math.floor(Math.random() * 255) % 255)
@@ -131,6 +135,9 @@ const Dataset = (() => {
 })()
 
 const Display = (() => {
+  const zoomSensitivity = 0.005
+  let zoom = 1.0
+
   const renderVector = (p, v, scale, color) => {
     const [x, y] = p
     const [vx, vy] = v
@@ -165,23 +172,45 @@ const Display = (() => {
     }
   }
 
+  const transform = com => {
+    translate(-Vec.x(com), -Vec.y(com))
+    translate(width / 2, height / 2)
+
+    scale(zoom)
+  }
+
   const render = particles => {
+    const stats = Simulation.stats(particles)
+
+    push()
+    transform(stats.com)
+
     particles.forEach(p => {
       renderParticle(p)
       renderParticleMetadata(p)
     })
-    updateStats(particles)
+    pop()
+
+    updateStats(stats)
   }
 
-  const updateStats = particles => {
-    const { momentum, energy } = Simulation.stats(particles)
+  const updateStats = stats => {
+    const { momentum, energy, com } = stats
 
-    const [e, m] = ["energy", "momentum"].map(id => document.getElementById(id))
+    const [e, m, c] = ["energy", "momentum", "com"].map(id =>
+      document.getElementById(id)
+    )
     m.textContent = `Total Momentum: ${momentum}`
     e.textContent = `Total Energy: ${energy}`
+    c.textContent = `COM: ${com}`
   }
 
-  return { render }
+  const scroll = e => {
+    zoom += zoomSensitivity * e.delta
+    return false
+  }
+
+  return { render, scroll }
 })()
 
 function setup() {
@@ -194,6 +223,7 @@ function setup() {
 
 function draw() {
   clear()
+  background(0)
   if (!paused) {
     sim = Simulation.evolve(sim)
   }
@@ -206,4 +236,8 @@ function keyPressed() {
   } else if (key === "p") {
     paused = !paused
   }
+}
+
+function mouseWheel(event) {
+  return Display.scroll(event)
 }
