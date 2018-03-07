@@ -5,9 +5,10 @@ let showVelocity = true;
 let showForce = true;
 let sim;
 
-const last = (n, as) => as.slice(as.length - n);
+const lastN = (n, as) => as.slice(as.length - n);
+const last = as => as[as.length - 1];
 
-const Vector = (() => {
+const Vec = (() => {
   const scale = (k, [x, y]) => [k * x, k * y];
   const dot = ([x1, y1], [x2, y2]) => x1 * x2 + y1 * y2;
   const sum = ([x1, y1], [x2, y2]) => [x1 + x2, y1 + y2];
@@ -29,31 +30,27 @@ const Vector = (() => {
 
 const Physics = {
   gravity: (p1, p2) => {
-    const { diff, mag, unit, scale } = Vector;
-
-    const offset = diff(p2.s, p1.s);
-    const distance = mag(offset);
+    const offset = Vec.diff(p2.s, p1.s);
+    const distance = Vec.mag(offset);
     const f = G * p1.m * p2.m / Math.pow(distance, 2);
 
     const degen = f === Infinity || distance === 0;
-    return degen ? [0, 0] : scale(f, unit(offset));
+    return degen ? [0, 0] : Vec.scale(f, Vec.unit(offset));
   },
-  momentum: ({ v, m }) => Vector.scale(m, v),
-  kinetic: ({ v, m }) => 0.5 * m * Math.pow(Vector.mag(v), 2),
-  orbitalSpeed: ({ m }, r) => Math.sqrt(G * m / r)
+  momentum: ({ v, m }) => Vec.scale(m, v),
+  kinetic: ({ v, m }) => 0.5 * m * Math.pow(Vec.mag(v), 2),
+  orbitalV: ({ m }, r) => Math.sqrt(G * m / r)
 };
 
 const Particle = {
   update: force => p => {
-    const { sum, scale } = Vector;
-
     const { s, v, m, h } = p;
 
-    const a = scale(1 / m, force);
-    const v_ = sum(v, a);
-    const s_ = sum(s, v_);
+    const a = Vec.scale(1 / m, force);
+    const v_ = Vec.sum(v, a);
+    const s_ = Vec.sum(s, v_);
 
-    return { ...p, s: s_, v: v_, h: [...last(50, h), p] };
+    return { ...p, s: s_, v: v_, h: [...lastN(50, h), p] };
   },
   create: (s, v, m, color, h = []) => ({ s, v, m, color, h })
 };
@@ -62,37 +59,57 @@ const Simulation = {
   evolve: particles =>
     particles.map(p => {
       const force = particles.reduce(
-        (g, p2) => Vector.sum(g, Physics.gravity(p, p2)),
+        (g, p2) => Vec.sum(g, Physics.gravity(p, p2)),
         [0, 0]
       );
       return Particle.update(force)(p);
     }),
 
   stats: particles => ({
-    momentum: particles.map(Physics.momentum).reduce(Vector.sum),
+    momentum: particles.map(Physics.momentum).reduce(Vec.sum),
     energy: particles.map(Physics.kinetic).reduce((a, b) => a + b)
-  }),
+  })
+};
 
-  init: () => {
-    const randomColor = () =>
-      [0, 0, 0].map(_ => Math.floor(Math.random() * 255) % 255);
-    const sun = Particle.create([500, 500], [0, 0], 3000, [0, 0, 255]);
+const Dataset = (() => {
+  const { create } = Particle;
+  const { orbitalV } = Physics;
+
+  const sun = create([500, 500], [0, 0], 3000, [0, 0, 255]);
+
+  const randomColor = () =>
+    [0, 0, 0].map(_ => Math.floor(Math.random() * 255) % 255);
+
+  const solar = () => {
     const planets = [1, 2, 3, 4, 5].map(n => {
       const x = 500;
       const height = n * 50 + Math.random() * 25;
       const y = height + 500;
-      const s = Physics.orbitalSpeed(sun, height);
-      return Particle.create(
-        [x, y],
-        [s, 0],
-        1 + Math.random() * 5,
-        randomColor()
-      );
+      const s = Physics.orbitalV(sun, height);
+      return create([x, y], [s, 0], 1 + Math.random() * 5, randomColor());
     });
 
     return [sun, ...planets];
-  }
-};
+  };
+
+  const threebody = () => {
+    const planet = create(
+      [500, 900],
+      [orbitalV(sun, 400), 0],
+      200,
+      randomColor()
+    );
+    const moon = create(
+      [500, 925],
+      [orbitalV(planet, 25) + orbitalV(sun, 425), 0],
+      1,
+      randomColor()
+    );
+    return [planet, moon, sun];
+  };
+
+  return { solar, threebody };
+})();
 
 const Display = (() => {
   const renderVector = (p, v, scale, color) => {
@@ -105,7 +122,7 @@ const Display = (() => {
   };
 
   const renderParticle = p => {
-    const { x, y } = Vector;
+    const { x, y } = Vec;
 
     fill(...p.color);
     const r = 10 + p.m / 50;
@@ -125,7 +142,7 @@ const Display = (() => {
       renderVector(p.s, p.v, 5, [100]);
     }
     if (showForce && p.h.length) {
-      renderVector(p.s, Vector.diff(p.v, p.h[p.h.length - 1].v), 30, [100]);
+      renderVector(p.s, Vec.diff(p.v, last(p.h).v), 30, [100]);
     }
   };
 
@@ -155,7 +172,7 @@ function setup() {
   createCanvas(1000, 1000);
   noStroke();
 
-  sim = Simulation.init();
+  sim = Dataset.threebody();
 }
 
 function draw() {
@@ -166,12 +183,10 @@ function draw() {
   Display.render(sim);
 }
 
-function mousePressed() {
-  paused = !paused;
-}
-
 function keyPressed() {
   if (key === " ") {
     sim = sim.step();
+  } else if (key === "p") {
+    paused = !paused;
   }
 }
