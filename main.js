@@ -1,13 +1,13 @@
 const G = 0.1
 let paused = false
 let showMomentum = false
-let showVelocity = true
-let showForce = true
+let showVelocity = false
+let showForce = false
 let particles = []
 
 const last = (n, as) => as.slice(as.length - n)
 
-const randomColor = () => [0, 0, 0].map(_ => Math.floor(Math.random() * 255) % 255)
+const randomColor = () => [0, 0, 0].map(_ => Math.round(Math.random() * 255) % 255)
 
 const angle = (p1, p2) => Math.atan2(p2.pos.y - p1.pos.y, p2.pos.x - p1.pos.x)
 const distance = (p1, p2) => dist(p1.pos.x, p1.pos.y, p2.pos.x, p2.pos.y)
@@ -59,7 +59,7 @@ const render = (particles) => {
     const { color, mass, pos, vel, lastf, hist } = p
     const { x, y } = pos
     fill(...color)
-    const r = 10 + (mass / 50)
+    const r = 5 + (mass / 40)
     ellipse(x, y, r, r)
 
     if (showMomentum) {
@@ -89,27 +89,35 @@ const updateStats = (particles) => {
   e.textContent = `Total Energy: ${totalEnergy}`
 }
 
+const randomOrbital = n => body => {
+  const mass = (body.mass * 0.005) + (Math.random() * body.mass * 0.001)
+  const x = body.pos.x
+  const h = n * (Math.random() * body.mass * 0.001 + (body.mass / 100) + 10)
+  const y = h + body.pos.y
+  const s = orbitalSpeed(body, h)
+  return Particle.make(createVector(x, y), createVector(s + body.vel.mag(), 0), mass, randomColor())
+}
+
 function setup() {
   const { make } = Particle
   frameRate(60)
   createCanvas(1000, 1000)
   noStroke()
-  const sun = make(createVector(500, 500), createVector(0, 0), 1500, [255, 255, 0])
-  const planets = [1, 2, 3, 4, 5].map(n => {
-    const x = 500
-    const height = n * 50 + (Math.random() * 25)
-    const y = height + 500
-    const s = orbitalSpeed(sun, height)
-    return make(createVector(x, y), createVector(s, 0), 1 + Math.random() * 5, randomColor())
+  const sun = make(createVector(500, 500), createVector(0, 0), 6000, [255, 255, 0])
+  const planets = [1,2,3,4,5].map(n => {
+    return randomOrbital(n)(sun)
   })
+  const moons = planets.map(randomOrbital(1))
   particles = [
+    sun,
     ...planets,
-    sun
+    ...moons
   ]
 }
 
 function draw() {
   clear()
+  background(0)
   if (!paused) {
     particles = Simulation.step(particles)
   }
