@@ -5,8 +5,27 @@ let showVelocity = true
 let showForce = true
 let sim
 
-const lastN = (n, as) => as.slice(as.length - n)
-const last = as => as[as.length - 1]
+const Fn = (() => {
+  const pipe = fs => fs.reduce((g, f) => a => f(g(a)))
+
+  return { pipe }
+})()
+
+const Arr = (() => {
+  // Misc
+  const last = as => as[as.length - 1]
+  const lastN = (n, as) => as.slice(as.length - n)
+  const range = n => [...Array(n).keys()]
+
+  // Functor
+  const map = f => as => as.map(f)
+
+  // Chain
+  const join = as => as.reduce((a, b) => [...a, ...b], [])
+  const chain = f => as => as.reduce((p, c) => [...p, ...f(c)], [])
+
+  return { last, lastN, range, map, join, chain }
+})()
 
 const Vec = (() => {
   const scale = (k, [x, y]) => [k * x, k * y]
@@ -22,8 +41,9 @@ const Vec = (() => {
   const eq = ([x1, y1], [x2, y2]) => x1 === x2 && y1 === y2
   const x = ([x, _]) => x
   const y = ([_, y]) => y
+  const zero = [0, 0]
 
-  return { scale, dot, sum, diff, norm, mag, unit, fromRadial, eq, x, y }
+  return { scale, dot, sum, diff, norm, mag, unit, fromRadial, eq, x, y, zero }
 })()
 
 const Physics = {
@@ -33,7 +53,7 @@ const Physics = {
     const f = G * p1.m * p2.m / Math.pow(distance, 2)
 
     const degen = f === Infinity || distance === 0
-    return degen ? [0, 0] : Vec.scale(f, Vec.unit(offset))
+    return degen ? Vec.zero : Vec.scale(f, Vec.unit(offset))
   },
   momentum: ({ v, m }) => Vec.scale(m, v),
   kinetic: ({ v, m }) => 0.5 * m * Math.pow(Vec.mag(v), 2),
@@ -48,7 +68,7 @@ const Particle = {
     const v_ = Vec.sum(v, a)
     const s_ = Vec.sum(s, v_)
 
-    return { ...p, s: s_, v: v_, h: [...lastN(50, h), p] }
+    return { ...p, s: s_, v: v_, h: [...Arr.lastN(100, h), p] }
   },
   create: (s, v, m, color, h = []) => ({ s, v, m, color, h })
 }
@@ -58,7 +78,7 @@ const Simulation = {
     particles.map(p => {
       const force = particles.reduce(
         (g, p2) => Vec.sum(g, Physics.gravity(p, p2)),
-        [0, 0]
+        Vec.zero
       )
       return Particle.update(force)(p)
     }),
@@ -77,7 +97,7 @@ const Dataset = (() => {
   const { create } = Particle
   const { orbitalV } = Physics
 
-  const sun = create([0, 0], [0, 0], 30000, [0, 0, 255])
+  const sun = create(Vec.zero, Vec.zero, 30000, [0, 0, 255])
 
   const randomColor = () =>
     [0, 0, 0].map(_ => Math.floor(Math.random() * 255) % 255)
@@ -98,40 +118,19 @@ const Dataset = (() => {
     return Particle.create(s, v, m, randomColor())
   }
 
-  const range = n => [...Array(n).keys()]
-  const flatMap = f => as => as.reduce((p, c) => [...p, ...f(c)], [])
+  const debrisField = ({ n, r, center }) =>
+    Fn.pipe([Arr.range, Arr.map(x => (1 + x) * r), Arr.map(orbital(center))])(n)
 
   const solar = () => {
-    const planets = range(5)
-      .map(x => (1 + x) * 200)
-      .map(orbital(sun))
-
-    const moons = flatMap(p =>
-      range(2)
-        .map(x => (1 + x) * 30)
-        .map(orbital(p))
-    )(planets)
+    const planets = debrisField({ n: 5, r: 200, center: sun })
+    const moons = Arr.chain(p => debrisField({ n: 2, r: 30, center: p }))(
+      planets
+    )
 
     return [sun, ...planets, ...moons]
   }
 
-  const threebody = () => {
-    const planet = create(
-      [500, 600],
-      [orbitalV(sun, 100), 0],
-      200,
-      randomColor()
-    )
-    const moon = create(
-      [500, 925],
-      [orbitalV(planet, 25) + orbitalV(sun, 425), 0],
-      1,
-      randomColor()
-    )
-    return [planet, moon, sun]
-  }
-
-  return { solar, threebody }
+  return { solar }
 })()
 
 const Display = (() => {
@@ -147,20 +146,29 @@ const Display = (() => {
     noStroke()
   }
 
+  const particleRadius = p => 10 + p.m / 50
+
+  const renderTrail = p => {
+    const r = particleRadius(p) / 3
+
+    p.h.forEach(({ s: pos }, i) => {
+      const ratio = i / p.h.length
+      const tp = p.color.slice()
+      tp[3] = 255 * ratio
+      fill(...tp)
+      ellipse(Vec.x(pos), Vec.y(pos), r * ratio, r * ratio)
+    })
+  }
+
   const renderParticle = p => {
     const { x, y } = Vec
 
     fill(...p.color)
-    const r = 10 + p.m / 50
+    const r = particleRadius(p)
     ellipse(x(p.s), y(p.s), r, r)
 
     noStroke()
-    p.h.forEach(({ s: pos }, i) => {
-      const tp = p.color.slice()
-      tp[3] = 255 * (i / p.h.length)
-      fill(...tp)
-      ellipse(x(pos), y(pos), r / 3, r / 3)
-    })
+    renderTrail(p)
   }
 
   const renderParticleMetadata = p => {
@@ -168,7 +176,7 @@ const Display = (() => {
       renderVector(p.s, p.v, 5, [100])
     }
     if (showForce && p.h.length) {
-      renderVector(p.s, Vec.diff(p.v, last(p.h).v), 30, [100])
+      renderVector(p.s, Vec.diff(p.v, Arr.last(p.h).v), 30, [100])
     }
   }
 
