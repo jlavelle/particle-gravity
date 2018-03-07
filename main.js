@@ -7,9 +7,14 @@ let particles = []
 
 const last = (n, as) => as.slice(as.length - n)
 
+const randomColor = () => [0, 0, 0].map(_ => Math.floor(Math.random() * 255) % 255)
+
 const angle = (p1, p2) => Math.atan2(p2.pos.y - p1.pos.y, p2.pos.x - p1.pos.x)
+const distance = (p1, p2) => dist(p1.pos.x, p1.pos.y, p2.pos.x, p2.pos.y)
+
 const momentum = ({ vel, mass }) => vel.copy().mult(mass)
 const kineticEnergy = ({ vel, mass }) => 0.5 * mass * (vel.copy().mag() ^ 2)
+const orbitalSpeed = ({ mass }, r) => Math.sqrt(G * mass / r)
 
 const forceVec = (f, p1, p2) => {
   const a = angle(p1, p2)
@@ -17,9 +22,9 @@ const forceVec = (f, p1, p2) => {
 }
 
 const gravity = (p1, p2) => {
-  const distance = dist(p1.pos.x, p1.pos.y, p2.pos.x, p2.pos.y)
-  const f = (G * p1.mass * p2.mass) / Math.pow(distance, 2)
-  if (f === Infinity || distance === 0) return createVector(0, 0)
+  const d = distance(p1, p2)
+  const f = (G * p1.mass * p2.mass) / Math.pow(d, 2)
+  if (f === Infinity || d === 0) return createVector(0, 0)
   return forceVec(f, p1, p2)
 }
 
@@ -56,16 +61,16 @@ const render = (particles) => {
     fill(...color)
     const r = 10 + (mass / 50)
     ellipse(x, y, r, r)
-    
+
     if (showMomentum) {
       const m = momentum(p)
       fill(0)
       text(`${m.mag().toFixed(3)}`, x + 10, y + 10)
     }
     if (showVelocity) showVec(pos, vel, 2, [100])
-    if (showForce && lastf) showVec(pos, lastf, 2, [100])
+    if (showForce && lastf) showVec(pos, lastf, 20, [100])
     noStroke()
-    
+
     hist.forEach((pos, i) => {
       const tp = color.slice()
       tp[3] = (i / hist.length) * 255
@@ -86,15 +91,20 @@ const updateStats = (particles) => {
 
 function setup() {
   const { make } = Particle
-  frameRate(30)
+  frameRate(60)
   createCanvas(1000, 1000)
   noStroke()
+  const sun = make(createVector(500, 500), createVector(0, 0), 1500, [255, 255, 0])
+  const planets = [1, 2, 3, 4, 5].map(n => {
+    const x = 500
+    const height = n * 50
+    const y = height + 500
+    const s = orbitalSpeed(sun, height)
+    return make(createVector(x, y), createVector(s, 0), 1 + Math.random() * 5, randomColor())
+  })
   particles = [
-    make(createVector(500, 300), createVector(2, 0), 5, [0, 0, 255]),
-    make(createVector(500, 350), createVector(3, 0), 5, [255, 0, 0]),
-    make(createVector(500, 400), createVector(4, 0), 2, [0, 255, 0]),
-    make(createVector(500, 450), createVector(6, 0), 1, [100, 100, 100]),
-    make(createVector(500, 500), createVector(0, 0), 1500, [255, 255, 0])
+    ...planets,
+    sun
   ]
 }
 
