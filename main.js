@@ -39,7 +39,8 @@ const Physics = {
     return degen ? [0, 0] : scale(f, unit(offset));
   },
   momentum: ({ v, m }) => Vector.scale(m, v),
-  kinetic: ({ v, m }) => 0.5 * m * Math.pow(Vector.mag(v), 2)
+  kinetic: ({ v, m }) => 0.5 * m * Math.pow(Vector.mag(v), 2),
+  orbitalSpeed: ({ m }, r) => Math.sqrt(G * m / r)
 };
 
 const Particle = {
@@ -70,7 +71,27 @@ const Simulation = {
   stats: particles => ({
     momentum: particles.map(Physics.momentum).reduce(Vector.sum),
     energy: particles.map(Physics.kinetic).reduce((a, b) => a + b)
-  })
+  }),
+
+  init: () => {
+    const randomColor = () =>
+      [0, 0, 0].map(_ => Math.floor(Math.random() * 255) % 255);
+    const sun = Particle.create([500, 500], [0, 0], 3000, [0, 0, 255]);
+    const planets = [1, 2, 3, 4, 5].map(n => {
+      const x = 500;
+      const height = n * 50 + Math.random() * 25;
+      const y = height + 500;
+      const s = Physics.orbitalSpeed(sun, height);
+      return Particle.create(
+        [x, y],
+        [s, 0],
+        1 + Math.random() * 5,
+        randomColor()
+      );
+    });
+
+    return [sun, ...planets];
+  }
 };
 
 const Display = (() => {
@@ -104,7 +125,7 @@ const Display = (() => {
       renderVector(p.s, p.v, 5, [100]);
     }
     if (showForce && p.h.length) {
-      renderVector(p.s, Vector.diff(p.v, p.h[p.h.length - 1].v), 50, [100]);
+      renderVector(p.s, Vector.diff(p.v, p.h[p.h.length - 1].v), 30, [100]);
     }
   };
 
@@ -133,13 +154,8 @@ function setup() {
   frameRate(30);
   createCanvas(1000, 1000);
   noStroke();
-  sim = [
-    Particle.create([500, 300], [3, 0], 5, [0, 0, 255]),
-    Particle.create([500, 350], [3, 0], 5, [255, 0, 0]),
-    Particle.create([500, 400], [4, 0], 2, [0, 255, 0]),
-    Particle.create([500, 450], [6, 0], 1, [100, 100, 100]),
-    Particle.create([500, 500], [0, 0], 1500, [255, 255, 0])
-  ];
+
+  sim = Simulation.init();
 }
 
 function draw() {
