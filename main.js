@@ -147,7 +147,7 @@ const Dataset = (() => {
 })()
 
 const Display = (() => {
-  const zoomSensitivity = 1.5
+  const zoomSensitivity = 0.75
   let zoom = 1.0
 
   const renderVector = (p, v, scale, color) => {
@@ -227,7 +227,8 @@ const Display = (() => {
   }
 
   const scroll = e => {
-    zoom *= Math.pow(zoomSensitivity, e.delta / Math.abs(e.delta))
+    const sign = e.delta === 0 ? 1 : e.delta / Math.abs(e.delta)
+    zoom *= Math.pow(zoomSensitivity, sign)
     return false
   }
 
