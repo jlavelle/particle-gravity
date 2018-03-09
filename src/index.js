@@ -235,7 +235,7 @@ const Display = (() => {
   return { render, scroll }
 })()
 
-function setup() {
+window.setup = function() {
   frameRate(30)
   createCanvas(1000, 1000)
   noStroke()
@@ -243,7 +243,7 @@ function setup() {
   sim = Dataset.solar()
 }
 
-function draw() {
+window.draw = function() {
   clear()
   background(0)
   if (!paused) {
@@ -252,7 +252,7 @@ function draw() {
   Display.render(sim)
 }
 
-function keyPressed() {
+window.keyPressed = function() {
   if (key === " ") {
     sim = sim.step()
   } else if (key === "p") {
@@ -260,6 +260,6 @@ function keyPressed() {
   }
 }
 
-function mouseWheel(event) {
+window.mouseWheel = function(event) {
   return Display.scroll(event)
 }
