@@ -1,8 +1,8 @@
-const G = 1
+const G = 0.01
 let paused = false
 let showMomentum = false
-let showVelocity = true
-let showForce = true
+let showVelocity = false
+let showForce = false
 let sim
 
 const Fn = (() => {
