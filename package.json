@@ -6,7 +6,7 @@
   "author": "Asad Saeeduddin <masaeedu@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "build": "webpack --mode production"
+    "build": "webpack --mode production --devtool inline-source-map"
   },
   "devDependencies": {
     "webpack": "^4.1.1",
