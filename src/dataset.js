@@ -14,7 +14,7 @@ const orbital = p => r => {
   // mass ratio
   const mr = 0.1
 
-  const offset = Vec.fromRadial(Math.random() * Math.PI, r)
+  const offset = Vec.fromRadial(Math.random() * 2 * Math.PI, r)
 
   const s = Vec.sum(p.s, offset)
   const v = Vec.sum(p.v, Vec.scale(orbitalV(p, r), Vec.unit(Vec.norm(offset))))
