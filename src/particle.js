@@ -37,3 +37,12 @@ export const update = system => {
 
   return s2
 }
+
+export const stats = particles => ({
+  momentum: particles.map(Physics.momentum).reduce(Vec.sum),
+  energy: particles.map(Physics.kinetic).reduce((a, b) => a + b),
+  com: Vec.scale(
+    1 / particles.map(p => p.m).reduce((a, b) => a + b),
+    particles.map(p => Vec.scale(p.m, p.s)).reduce(Vec.sum)
+  )
+})
