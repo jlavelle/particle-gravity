@@ -11,8 +11,6 @@ let showForce = false
 let sim
 
 const Simulation = {
-  evolve: Particle.update,
-
   stats: particles => ({
     momentum: particles.map(Physics.momentum).reduce(Vec.sum),
     energy: particles.map(Physics.kinetic).reduce((a, b) => a + b),
@@ -124,7 +122,7 @@ window.draw = function() {
   clear()
   background(0)
   if (!paused) {
-    sim = Simulation.evolve(sim)
+    sim = Particle.update(sim)
   }
   Display.render(sim)
 }
